@@ -84,7 +84,7 @@ class Board:
     def expose(self, x: int, y: int, exposed: list = None) -> list:
         if exposed is None:
             exposed = []
-        if self._marker[x, y] == Marker.flag:
+        if self._marker[x, y] == Marker.flag or not self.is_active:
             return exposed
         if self._is_open[x, y]:
             return exposed
@@ -125,9 +125,13 @@ class Board:
         return exposed
 
     def mark(self, x: int, y: int) -> Marker:
-        if self._is_open[x, y]:
+        if self._is_open[x, y] or not self.is_active:
             # noinspection PyTypeChecker
             return None
         else:
             self._marker[x, y] = (self._marker[x, y] + 1) % 3
             return self._marker[x, y]
+
+    def reset(self, seed: int = None):
+        return Board(self.x, self.y, self.num_mines, seed)
+
