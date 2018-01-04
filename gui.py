@@ -12,10 +12,10 @@ class GUI:
         self.menu_frame = Frame(master)
         self.menu_frame.pack(side=TOP)
                 
-        self.mines_left_label = Label(self.menu_frame, text = '')
+        self.mines_left_label = Label(self.menu_frame, text='')
         self.mines_left_label.pack(side=LEFT)
         
-        self.reset_button = Button(self.menu_frame, text = 'Reset', command=self.board_reset)
+        self.reset_button = Button(self.menu_frame, text='Reset', command=self.board_reset)
         self.reset_button.pack(side=LEFT)
 
         self.easy_button = Button(self.menu_frame, text='easy', command=self.easy)
