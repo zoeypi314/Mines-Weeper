@@ -1,4 +1,4 @@
-from tkinter import Tk, Label, Button, LEFT, Frame, TOP, BOTTOM, StringVar
+from tkinter import Tk, Label, Button, LEFT, Frame, TOP, BOTTOM, StringVar, ttk, Entry
 from butthats import Asshats
 from board import Board, Marker
 from config import *
@@ -28,6 +28,12 @@ class GUI:
         self.hard_button = Button(self.menu_frame, text='hard', command=self.hard)
         self.hard_button.pack(side=LEFT)
 
+        self.custom_button = Button(self.menu_frame, text='custom', command=self.custom)
+        self.custom_button.pack(side=LEFT)
+
+        self.bar_colour = self.hard_button.cget("background")
+        self.win_lose = [
+            self.reset_button, self.easy_button, self.intermediate_button, self.hard_button, self.custom_button]
         self.grid_squares = []
         self.asshats = Asshats()
 
@@ -38,12 +44,14 @@ class GUI:
         self.board_frame = Frame(self.master)
         self.board_frame.pack(side=BOTTOM)
         self.grid_squares = []
-        for x in range(self.config.x):
-            for y in range(self.config.y):
+        for y in range(self.config.y):
+            current_row = []
+            for x in range(self.config.x):
                 square = SquareButton(self.board_frame, x, y, self)
                 square.config(image=self.asshats.photo_closed, width='20', height='20')
                 square.grid(row=y, column=x)
-                self.grid_squares.append(square)
+                current_row.append(square)
+            self.grid_squares.append(current_row)
 
     # noinspection PyAttributeOutsideInit
     def board_reset(self, config: Config=None):
@@ -56,6 +64,7 @@ class GUI:
         self.board = Board(config.x, config.y, config.n)
         self.init_board_frame()
         self.update_counter()
+        self.reset_bar_color()
 
     def update_counter(self):
         if self.board.rem_mines < 0:
@@ -74,6 +83,18 @@ class GUI:
     def hard(self):
         self.board_reset(HARD)
 
+    def change_bar_color(self, is_fail: bool):
+        color = 'red' if is_fail else 'green'
+        for butt in self.win_lose:
+            butt.configure(background=color)
+
+    def reset_bar_color(self):
+        for butt in self.win_lose:
+            butt.configure(background=self.bar_colour)
+
+    def custom(self):
+        CustomPopUp(self)
+
 
 class SquareButton(Button):
     def __init__(self, master, x: int, y: int, gui: GUI):
@@ -82,9 +103,21 @@ class SquareButton(Button):
         self.y = y
         self.gui = gui
         self.bind("<Button-3>", self.mark)
+        self.bind("<Button-1>", self.expose)
 
-    def expose(self):
-        pass
+    def expose(self, event):
+        is_fail = False
+        exposed = self.gui.board.expose(self.x, self.y)
+        for x, y, adj in exposed:
+            if adj == -1:
+                is_fail = True
+                self.gui.grid_squares[y][x].config(image=self.gui.asshats.photo_mine)
+                if self.x == x and self.y == y:
+                    self.gui.grid_squares[y][x].config(image=self.gui.asshats.photo_red_mine)
+            else:
+                self.gui.grid_squares[y][x].config(image=self.gui.asshats.photo_adj[adj])
+        if not self.gui.board.is_active:
+            self.gui.change_bar_color(is_fail)
 
     def mark(self, event):
         new_mark = self.gui.board.mark(self.x, self.y)
@@ -97,6 +130,38 @@ class SquareButton(Button):
         elif new_mark == Marker.clear:
             self.config(image=self.gui.asshats.photo_closed, width='20', height='20')
         self.gui.update_counter()
+
+
+class CustomPopUp(Tk):
+    def __init__(self, gui):
+        super().__init__()
+        self.gui = gui
+        self.new_config = Config(StringVar(), StringVar(), StringVar())
+        self.new_config.x.set('')
+        self.new_config.y.set('')
+        self.new_config.n.set('')
+        self.wm_title('Custom Board')
+        w_label = Label(self, text='Width')
+        w_label.grid(row=0, column=0)
+        self.w_box = Entry(self, textvariable=self.new_config.x)
+        self.w_box.grid(row=0, column=1)
+        h_label = Label(self, text='Height')
+        h_label.grid(row=1, column=0)
+        h_box = Entry(self, textvariable=self.new_config.y)
+        h_box.grid(row=1, column=1)
+        n_label = Label(self, text='Mines')
+        n_label.grid(row=2, column=0)
+        n_box = Entry(self, textvariable=self.new_config.n)
+        n_box.grid(row=2, column=1)
+
+        b1 = Button(self, text="Okay", command=self.okay)
+        b1.grid(row=3, columnspan=2, column=0)
+        self.mainloop()
+
+    def okay(self):
+        config = Config(int(self.new_config.x.get()), int(self.new_config.y.get()), int(self.new_config.n.get()))
+        self.gui.board_reset(config)
+        self.destroy()
 
 
 root = Tk()
