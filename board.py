@@ -14,6 +14,7 @@ class Board:
         self.x = x
         self.y = y
         self.num_mines = n
+        self.rem_mines = n
         self.is_active = True
         self._is_mine = np.zeros([self.x, self.y], np.bool)
         self._is_open = np.zeros([self.x, self.y], np.bool)
@@ -129,7 +130,13 @@ class Board:
             # noinspection PyTypeChecker
             return None
         else:
+            if self._marker[x, y] == Marker.flag:
+                self.rem_mines += 1
+            # update the current marker
             self._marker[x, y] = (self._marker[x, y] + 1) % 3
+            if self._marker[x, y] == Marker.flag:
+                self.rem_mines -= 1
+
             return self._marker[x, y]
 
     def reset(self, seed: int = None):
