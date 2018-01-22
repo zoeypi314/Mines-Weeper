@@ -1,10 +1,19 @@
 from tkinter import Tk, Label, Button, LEFT, Frame, TOP, BOTTOM, StringVar, ttk, Entry
+
+import os
+
 from butthats import Asshats
 from board import Board, Marker
 from config import *
 
 
 class GUI:
+    """ This is the view and controller
+        Controller inits the model for the view and responds to events from the view
+        View is responsible for displaying the data
+    """
+    SAVE_NAME = 'last_state.json'
+
     def __init__(self, master):
         self.master = master
         master.title('Mines-Weeper by Agent Orange')
@@ -37,7 +46,8 @@ class GUI:
         self.grid_squares = []
         self.asshats = Asshats()
 
-        self.board_reset(EASY)
+        if self.load_board() is None:
+            self.board_reset(EASY)
 
     def init_board_frame(self):
         # noinspection PyAttributeOutsideInit
@@ -62,6 +72,9 @@ class GUI:
         else:
             config = self.config
         self.board = Board(config.x, config.y, config.n)
+        self.board_render()
+
+    def board_render(self):
         self.init_board_frame()
         self.update_counter()
         self.reset_bar_color()
@@ -95,6 +108,25 @@ class GUI:
     def custom(self):
         CustomPopUp(self)
 
+    def load_board(self):
+        if os.path.exists(self.SAVE_NAME):
+            with open(self.SAVE_NAME) as file:
+                self.board, exposed, markers = Board.from_json(file.read())
+                self.config = Config(self.board.x, self.board.y, self.board.num_mines)
+                self.board_render()
+                self.grid_squares[0][0].expose(None, exposed)
+                for x, y, marc in markers:
+                    self.grid_squares[y][x].mark(None, marc)
+            os.remove(self.SAVE_NAME)
+            return self.board
+        else:
+            return None
+
+    def save_board(self):
+        with open(self.SAVE_NAME, 'wt') as file:
+            json = self.board.to_json()
+            file.write(json)
+
 
 class SquareButton(Button):
     def __init__(self, master, x: int, y: int, gui: GUI):
@@ -105,9 +137,12 @@ class SquareButton(Button):
         self.bind("<Button-3>", self.mark)
         self.bind("<Button-1>", self.expose)
 
-    def expose(self, event):
+    def expose(self, event, exposed: list=None):
         is_fail = False
-        exposed = self.gui.board.expose(self.x, self.y)
+        if exposed is None:
+            exposed = self.gui.board.expose(self.x, self.y)
+        else:
+            pass  # loading the board from saved file
         for x, y, adj in exposed:
             if adj == -1:
                 is_fail = True
@@ -116,11 +151,14 @@ class SquareButton(Button):
                     self.gui.grid_squares[y][x].config(image=self.gui.asshats.photo_red_mine)
             else:
                 self.gui.grid_squares[y][x].config(image=self.gui.asshats.photo_adj[adj])
-        if not self.gui.board.is_active:
+        if not self.gui.board._is_active:
             self.gui.change_bar_color(is_fail)
 
-    def mark(self, event):
-        new_mark = self.gui.board.mark(self.x, self.y)
+    def mark(self, event, marc: Marker=None):
+        if marc is None:
+            new_mark = self.gui.board.mark(self.x, self.y)
+        else:
+            new_mark = marc
         if new_mark is None:
             pass
         elif new_mark == Marker.unknown:
@@ -164,6 +202,12 @@ class CustomPopUp(Tk):
         self.destroy()
 
 
+def on_close():
+    gui.save_board()
+    root.destroy()
+
+
 root = Tk()
 gui = GUI(root)
+root.protocol("WM_DELETE_WINDOW", on_close)
 root.mainloop()

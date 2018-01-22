@@ -3,6 +3,8 @@ from unittest import TestCase
 import numpy as np
 from numpy.testing import assert_array_equal
 from board import Board, Marker
+from json.encoder import JSONEncoder
+from json.decoder import JSONDecoder
 
 
 class BoardTest(TestCase):
@@ -72,7 +74,7 @@ class BoardTest(TestCase):
         # check not expose locking of unknown
         self.assertEqual(b.mark(1, 1), Marker.unknown)
         self.assertEqual(len(b.expose(1, 1)), 100)
-        self.assertFalse(b.is_active)
+        self.assertFalse(b._is_active)
         # check can't mark when game is over
         self.assertIsNone(b.mark(1, 1))
         self.assertIsNone(b.mark(1, 0))
@@ -84,14 +86,14 @@ class BoardTest(TestCase):
         e = b.expose(0, 0)
         self.assertEqual(len(e), 1)
         self.assertTupleEqual(e[0], (0, 0, 1))
-        self.assertTrue(b.is_active)
+        self.assertTrue(b._is_active)
         self.assertEqual(b.remaining_closed, 69)
 
         # case 2 - expose a mine
         e = b.expose(1, 1)
         self.assertEqual(len(e), 100)
         self.assertTupleEqual(e[11], (1, 1, -1))
-        self.assertFalse(b.is_active)
+        self.assertFalse(b._is_active)
         # Check that the board doesn't respond when game is over
         e = b.expose(1, 0)
         self.assertEqual(len(e), 0)
@@ -114,6 +116,48 @@ class BoardTest(TestCase):
         e = b.expose(0, 0)
         self.assertEqual(len(e), 99)
         self.assertTupleEqual(e[0], (0, 0, 0))
-        self.assertFalse(b.is_active)
+        self.assertFalse(b._is_active)
         self.assertEqual(b.remaining_closed, 0)
+
+    def test_to_json(self):
+        mine_count = 30
+        b = Board(10, 10, mine_count, self.SEED)
+        b.expose(0, 9)
+        json = b.to_json()
+        json = JSONDecoder().decode(json)
+        self.assertEqual(json['x'], 10)
+        self.assertEqual(json['y'], 10)
+        self.assertEqual(json['num_mines'], 30)
+        self.assertEqual(json['rem_mines'], 30)
+        self.assertEqual(json['_is_active'], True)
+        self.assertEqual(json['_is_mine'][0][0], False)
+        self.assertEqual(json['_is_mine'][0][2], True)
+        self.assertEqual(json['_is_open'][0][8], True)
+        self.assertEqual(json['_is_open'][0][7], False)
+        self.assertEqual(json['_adj_mines'][0][0], 1)
+        self.assertEqual(json['_adj_mines'][0][2], 2)
+        self.assertEqual(json['_marker'][0][0], 0)
+        self.assertEqual(json['remaining_closed'], 64)
+        self.assertNotIn('_rnd', json)
+
+    def test_from_json(self):
+        mine_count = 30
+        b = Board(10, 10, mine_count, self.SEED)
+        b.expose(0, 9)
+        json = b.to_json()
+        board = Board.from_json(json)[0]
+
+        self.assertEqual(board.x, 10)
+        self.assertEqual(board.y, 10)
+        self.assertEqual(board.num_mines, 30)
+        self.assertEqual(board.rem_mines, 30)
+        self.assertEqual(board._is_active, True)
+        self.assertEqual(board._is_mine[0, 0], False)
+        self.assertEqual(board._is_mine[0, 2], True)
+        self.assertEqual(board._is_open[0, 8], True)
+        self.assertEqual(board._is_open[0, 7], False)
+        self.assertEqual(board._adj_mines[0, 0], 1)
+        self.assertEqual(board._adj_mines[0, 2], 2)
+        self.assertEqual(board._marker[0, 0], 0)
+        self.assertEqual(board.remaining_closed, 64)
 
